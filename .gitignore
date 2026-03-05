@@ -1,0 +1,40 @@
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+.env.local
+.env*.local
+
+# ── Frontend (Next.js) ────────────────────────────────────────────────────────
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.env
+frontend/.env.local
+frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+
+# ── Backend (Python) ──────────────────────────────────────────────────────────
+backend/.venv/
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/data/
+
+# ── Mobile (Expo / React Native) ──────────────────────────────────────────────
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/build/
+mobile/.env
+mobile/.env.local
+mobile/ios/
+mobile/android/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "CourseSearch",
+    "slug": "coursesearch",
+    "version": "1.0.0",
+    "scheme": "coursesearch",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coursesearch.app"
+    },
+    "android": {
+      "package": "com.coursesearch.app"
+    },
+    "plugins": ["expo-router"]
+  }
+}
