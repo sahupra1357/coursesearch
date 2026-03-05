@@ -14,10 +14,14 @@ frontend/tsconfig.tsbuildinfo
 
 # ── Backend (Python) ──────────────────────────────────────────────────────────
 backend/.venv/
+backend/**/__pycache__/
 backend/__pycache__/
+backend/**/*.pyc
 backend/*.pyc
+backend/**/*.pyo
 backend/*.pyo
 backend/data/
+.pytest_cache/
 
 # ── Mobile (Expo / React Native) ──────────────────────────────────────────────
 mobile/node_modules/
