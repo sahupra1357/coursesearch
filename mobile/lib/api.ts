@@ -1,11 +1,11 @@
-import type { WebResult, SearchRecord } from "./types"
+import type { CollegeResult, SearchRecord } from "./types"
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000"
 
 export async function search(
   query: string,
   location: string,
-): Promise<{ results: WebResult[]; usedMock: boolean }> {
+): Promise<{ results: CollegeResult[]; agents: string[]; usedMock: boolean }> {
   const resp = await fetch(`${BACKEND_URL}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -11,7 +11,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Baked into the client bundle at build time; override via --build-arg
-ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+ARG NEXT_PUBLIC_BACKEND_URL=http://localhost:8001
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 RUN npm run build

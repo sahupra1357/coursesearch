@@ -1,28 +1,48 @@
 import { render, screen, fireEvent } from "@testing-library/react"
 import { ResultsTable } from "@/components/course-search/results-table"
-import type { WebResult } from "@/lib/types"
+import type { CollegeResult } from "@/lib/types"
 
-const mockResults: WebResult[] = [
+const mockResults: CollegeResult[] = [
   {
     id: "1",
-    title: "Python Programming Course",
-    url: "https://example.com/python",
-    source: "example.com",
-    snippet: "Learn Python programming from scratch.",
-    score: 0.95,
+    college: "IIT Bombay",
+    course: "B.Tech Computer Science",
+    location: "Mumbai",
+    isLocal: false,
+    ranking: "#1 Engineering — NIRF 2024",
+    fees: "₹2.2L/year",
+    duration: "4 years",
+    admissionRequirements: ["JEE Advanced", "10+2 PCM with 75%"],
+    admissionLink: "https://iitb.ac.in/admissions",
+    courseLink: "https://iitb.ac.in",
+    description: "World-class B.Tech CSE program at IIT Bombay.",
+    deadline: "April 2025",
+    source: "iitb.ac.in",
+    score: 0.97,
+    foundBy: "RankedCollegesAgent",
   },
   {
     id: "2",
-    title: "Advanced Python Masterclass",
-    url: "https://coursera.org/python",
-    source: "coursera.org",
-    snippet: "Advanced Python topics for experienced developers.",
+    college: "RVCE Bangalore",
+    course: "B.E. Computer Science",
+    location: "Bangalore",
+    isLocal: true,
+    ranking: "NAAC A+",
+    fees: "₹1.2L/year",
+    duration: "4 years",
+    admissionRequirements: ["KCET / COMEDK", "10+2 PCM 60% minimum"],
+    admissionLink: null,
+    courseLink: "https://rvce.edu.in",
+    description: "Premier engineering college in Bangalore.",
+    deadline: "June 2025",
+    source: "rvce.edu.in",
     score: 0.88,
+    foundBy: "LocalCollegesAgent",
   },
 ]
 
 describe("ResultsTable", () => {
-  it("shows loading spinner with query text when isLoading is true", () => {
+  it("shows loading indicator when isLoading is true", () => {
     render(
       <ResultsTable
         results={[]}
@@ -31,8 +51,8 @@ describe("ResultsTable", () => {
         query="python"
       />
     )
-    expect(screen.getByText(/Searching the web/)).toBeInTheDocument()
-    expect(screen.getByText(/python/)).toBeInTheDocument()
+    expect(screen.getByText(/Searching for/)).toBeInTheDocument()
+    expect(screen.getByText(/Agents are fetching/)).toBeInTheDocument()
   })
 
   it("shows search prompt when hasSearched is false", () => {
@@ -44,10 +64,7 @@ describe("ResultsTable", () => {
         query=""
       />
     )
-    expect(screen.getByText("Search for a course")).toBeInTheDocument()
-    expect(
-      screen.getByText(/Enter a course name, skill, or category/)
-    ).toBeInTheDocument()
+    expect(screen.getByText("Find the right course")).toBeInTheDocument()
   })
 
   it("shows no-results message when searched but empty", () => {
@@ -60,61 +77,101 @@ describe("ResultsTable", () => {
       />
     )
     expect(screen.getByText("No results found")).toBeInTheDocument()
-    expect(screen.getByText(/Try a different search term/)).toBeInTheDocument()
   })
 
-  it("renders result titles", () => {
+  it("renders college names", () => {
     render(
       <ResultsTable
         results={mockResults}
         isLoading={false}
         hasSearched={true}
-        query="python"
+        query="Computer Science"
       />
     )
-    // Both desktop and mobile views render same titles, so getAllByText
-    expect(
-      screen.getAllByText("Python Programming Course").length
-    ).toBeGreaterThan(0)
-    expect(
-      screen.getAllByText("Advanced Python Masterclass").length
-    ).toBeGreaterThan(0)
+    expect(screen.getByText("IIT Bombay")).toBeInTheDocument()
+    expect(screen.getByText("RVCE Bangalore")).toBeInTheDocument()
   })
 
-  it("renders source badges for each result", () => {
+  it("renders fees for each college", () => {
     render(
       <ResultsTable
         results={mockResults}
         isLoading={false}
         hasSearched={true}
-        query="python"
+        query="Computer Science"
       />
     )
-    expect(screen.getAllByText("example.com").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("coursera.org").length).toBeGreaterThan(0)
+    expect(screen.getByText("₹2.2L/year")).toBeInTheDocument()
+    expect(screen.getByText("₹1.2L/year")).toBeInTheDocument()
   })
 
-  it("expands snippet on mobile toggle button click", () => {
+  it("shows local colleges section when local results present", () => {
+    render(
+      <ResultsTable
+        results={mockResults}
+        isLoading={false}
+        hasSearched={true}
+        query="Computer Science"
+      />
+    )
+    expect(screen.getByText("Colleges Near You")).toBeInTheDocument()
+    expect(screen.getByText("Top Colleges Nationally")).toBeInTheDocument()
+  })
+
+  it("shows Local badge on local college cards", () => {
+    render(
+      <ResultsTable
+        results={mockResults}
+        isLoading={false}
+        hasSearched={true}
+        query="Computer Science"
+      />
+    )
+    expect(screen.getByText("Local")).toBeInTheDocument()
+  })
+
+  it("expands admission requirements on toggle click", () => {
     render(
       <ResultsTable
         results={[mockResults[0]]}
         isLoading={false}
         hasSearched={true}
-        query="python"
+        query="Computer Science"
       />
     )
-    // Desktop table always renders the snippet (1 occurrence before expand)
-    expect(
-      screen.getAllByText("Learn Python programming from scratch.").length
-    ).toBe(1)
+    // Requirements are hidden initially
+    expect(screen.queryByText("JEE Advanced")).not.toBeInTheDocument()
 
-    // Click the toggle button to expand the mobile section
-    const buttons = screen.getAllByRole("button")
-    fireEvent.click(buttons[0])
+    // Click the toggle button
+    fireEvent.click(screen.getByText("Admission Requirements"))
 
-    // Now snippet appears in both desktop table and mobile expanded section
-    expect(
-      screen.getAllByText("Learn Python programming from scratch.").length
-    ).toBe(2)
+    // Requirements should now be visible
+    expect(screen.getByText("JEE Advanced")).toBeInTheDocument()
+    expect(screen.getByText("10+2 PCM with 75%")).toBeInTheDocument()
+  })
+
+  it("shows Apply Now button when admissionLink is present", () => {
+    render(
+      <ResultsTable
+        results={[mockResults[0]]}
+        isLoading={false}
+        hasSearched={true}
+        query="Computer Science"
+      />
+    )
+    expect(screen.getByText("Apply Now")).toBeInTheDocument()
+  })
+
+  it("shows deadline after expanding requirements", () => {
+    render(
+      <ResultsTable
+        results={[mockResults[0]]}
+        isLoading={false}
+        hasSearched={true}
+        query="Computer Science"
+      />
+    )
+    fireEvent.click(screen.getByText("Admission Requirements"))
+    expect(screen.getByText(/April 2025/)).toBeInTheDocument()
   })
 })

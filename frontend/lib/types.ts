@@ -1,10 +1,20 @@
-export interface WebResult {
+export interface CollegeResult {
   id: string
-  title: string
-  url: string
+  college: string
+  course: string
+  location: string
+  isLocal: boolean
+  ranking: string | null
+  fees: string | null
+  duration: string | null
+  admissionRequirements: string[]
+  admissionLink: string | null
+  courseLink: string
+  description: string
+  deadline: string | null
   source: string
-  snippet: string
   score: number
+  foundBy: string
 }
 
 export interface SearchRecord {
@@ -13,5 +23,6 @@ export interface SearchRecord {
   location: string
   searchedAt: string
   resultCount: number
-  results: WebResult[]
+  results: CollegeResult[]
+  agents?: string[]
 }

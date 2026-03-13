@@ -34,7 +34,6 @@ export default function SavedScreen() {
     }
   }
 
-  // Reload whenever this tab comes into focus
   useFocusEffect(useCallback(() => { load() }, []))
 
   function formatDate(iso: string) {
@@ -49,7 +48,6 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={["top"]}>
-      {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>Saved Searches</Text>
         <Text style={s.headerDesc}>
@@ -66,7 +64,7 @@ export default function SavedScreen() {
           <Ionicons name="bookmark-outline" size={64} color="#94a3b8" />
           <Text style={s.emptyTitle}>No saved searches</Text>
           <Text style={s.emptyDesc}>
-            Your searches are automatically saved here after each query.
+            Your searches are automatically saved after each query.
           </Text>
         </View>
       ) : (
@@ -75,17 +73,13 @@ export default function SavedScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.list}
           refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={load}
-              tintColor={PRIMARY}
-            />
+            <RefreshControl refreshing={loading} onRefresh={load} tintColor={PRIMARY} />
           }
           renderItem={({ item }) => {
             const isExp = expanded === item.id
             return (
               <View style={s.card}>
-                {/* Card header row */}
+                {/* Card header */}
                 <Pressable
                   style={s.cardHeader}
                   onPress={() => setExpanded(isExp ? null : item.id)}
@@ -95,16 +89,22 @@ export default function SavedScreen() {
                       <Text style={s.query}>{item.query}</Text>
                       {item.location ? (
                         <View style={s.locationBadge}>
+                          <Ionicons name="location-outline" size={9} color="#64748b" />
                           <Text style={s.locationText}>{item.location}</Text>
                         </View>
                       ) : null}
+                      {item.agents && item.agents[0] !== "MockDataAgent" && (
+                        <View style={s.liveBadge}>
+                          <Text style={s.liveBadgeText}>Live</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={s.metaRow}>
                       <Ionicons name="time-outline" size={11} color="#94a3b8" />
                       <Text style={s.meta}>{formatDate(item.searchedAt)}</Text>
                       <Text style={s.metaDot}>·</Text>
                       <Text style={s.meta}>
-                        {item.resultCount} result{item.resultCount !== 1 ? "s" : ""}
+                        {item.resultCount} college{item.resultCount !== 1 ? "s" : ""}
                       </Text>
                     </View>
                   </View>
@@ -115,24 +115,36 @@ export default function SavedScreen() {
                   />
                 </Pressable>
 
-                {/* Expanded results list */}
+                {/* Expanded college list */}
                 {isExp && item.results.length > 0 && (
                   <View style={s.resultList}>
                     {item.results.map((r, i) => (
-                      <Pressable
-                        key={r.id}
-                        style={s.resultRow}
-                        onPress={() => Linking.openURL(r.url)}
-                      >
+                      <View key={r.id} style={s.resultRow}>
                         <Text style={s.resultIndex}>{i + 1}</Text>
                         <View style={s.resultContent}>
-                          <Text style={s.resultTitle} numberOfLines={1}>
-                            {r.title}
+                          <Text style={s.resultCollege} numberOfLines={1}>
+                            {r.college}
                           </Text>
-                          <Text style={s.resultSource}>{r.source}</Text>
+                          <Text style={s.resultCourse} numberOfLines={1}>
+                            {r.course}
+                          </Text>
+                          <View style={s.resultMeta}>
+                            {r.fees && (
+                              <View style={s.feeBadge}>
+                                <Text style={s.feeText}>{r.fees}</Text>
+                              </View>
+                            )}
+                            {r.isLocal && (
+                              <View style={s.localChip}>
+                                <Text style={s.localChipText}>Local</Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
-                        <Ionicons name="open-outline" size={14} color="#94a3b8" />
-                      </Pressable>
+                        <Pressable onPress={() => Linking.openURL(r.admissionLink ?? r.courseLink)}>
+                          <Ionicons name="open-outline" size={14} color="#94a3b8" />
+                        </Pressable>
+                      </View>
                     ))}
                   </View>
                 )}
@@ -184,15 +196,27 @@ const s = StyleSheet.create({
     gap: 10,
   },
   cardHeaderContent: { flex: 1, gap: 4 },
-  queryRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  queryRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   query: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
   locationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     backgroundColor: "#f1f5f9",
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  locationText: { fontSize: 11, color: "#64748b" },
+  locationText: { fontSize: 10, color: "#64748b" },
+  liveBadge: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+  },
+  liveBadgeText: { fontSize: 9, color: "#15803d", fontWeight: "700" },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   meta: { fontSize: 11, color: "#94a3b8" },
   metaDot: { fontSize: 11, color: "#cbd5e1" },
@@ -209,6 +233,21 @@ const s = StyleSheet.create({
   },
   resultIndex: { fontSize: 11, color: "#94a3b8", minWidth: 16 },
   resultContent: { flex: 1 },
-  resultTitle: { fontSize: 12, fontWeight: "500", color: PRIMARY, marginBottom: 2 },
-  resultSource: { fontSize: 11, color: "#94a3b8" },
+  resultCollege: { fontSize: 12, fontWeight: "600", color: PRIMARY, marginBottom: 1 },
+  resultCourse: { fontSize: 10, color: "#64748b", marginBottom: 4 },
+  resultMeta: { flexDirection: "row", gap: 6 },
+  feeBadge: {
+    backgroundColor: "#f0fdf4",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  feeText: { fontSize: 9, color: "#15803d", fontWeight: "600" },
+  localChip: {
+    backgroundColor: "#eff6ff",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  localChipText: { fontSize: 9, color: "#1d4ed8", fontWeight: "600" },
 })

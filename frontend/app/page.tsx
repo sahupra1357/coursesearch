@@ -4,9 +4,9 @@ import { useState, useEffect } from "react"
 import { Clock, ChevronDown, ChevronRight, RefreshCw, AlertCircle } from "lucide-react"
 import { SearchHero } from "@/components/course-search/search-hero"
 import { ResultsTable } from "@/components/course-search/results-table"
-import type { WebResult, SearchRecord } from "@/lib/types"
+import type { CollegeResult, SearchRecord } from "@/lib/types"
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000"
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8001"
 
 type Tab = "results" | "saved"
 
@@ -17,7 +17,7 @@ export default function CourseSearchPage() {
   const [isSearching, setIsSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [activeQuery, setActiveQuery] = useState("")
-  const [results, setResults] = useState<WebResult[]>([])
+  const [results, setResults] = useState<CollegeResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [usedMock, setUsedMock] = useState(false)
 
@@ -265,9 +265,9 @@ export default function CourseSearchPage() {
                             <thead>
                               <tr className="bg-muted/50">
                                 <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 w-6">#</th>
-                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">Title</th>
-                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 w-32 hidden sm:table-cell">Source</th>
-                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 hidden md:table-cell">Description</th>
+                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2">College</th>
+                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 w-24 hidden sm:table-cell">Fees</th>
+                                <th className="text-left font-semibold text-muted-foreground uppercase tracking-wider px-4 py-2 hidden md:table-cell">Admission</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -275,14 +275,17 @@ export default function CourseSearchPage() {
                                 <tr key={r.id} className="hover:bg-muted/20 transition-colors">
                                   <td className="px-4 py-2 font-mono text-muted-foreground">{i + 1}</td>
                                   <td className="px-4 py-2">
-                                    <a href={r.url} target="_blank" rel="noopener noreferrer"
+                                    <a href={r.courseLink} target="_blank" rel="noopener noreferrer"
                                       className="text-[#003580] hover:underline font-medium line-clamp-1">
-                                      {r.title}
+                                      {r.college}
                                     </a>
+                                    <p className="text-muted-foreground mt-0.5 line-clamp-1">{r.course}</p>
                                   </td>
-                                  <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{r.source}</td>
+                                  <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{r.fees ?? "—"}</td>
                                   <td className="px-4 py-2 text-muted-foreground hidden md:table-cell">
-                                    <p className="line-clamp-1">{r.snippet}</p>
+                                    <p className="line-clamp-1">
+                                      {r.admissionRequirements[0] ?? "—"}
+                                    </p>
                                   </td>
                                 </tr>
                               ))}
