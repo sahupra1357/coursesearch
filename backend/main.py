@@ -11,8 +11,8 @@ from pydantic import BaseModel
 from agents import AgentOrchestrator
 from storage import get_searches, save_search
 
-# Load TAVILY_API_KEY / ANTHROPIC_API_KEY from frontend/.env.local when running locally
-load_dotenv(Path(__file__).parent.parent / "frontend" / ".env.local")
+# Load from project root .env (local dev). Docker uses env_file in docker-compose.yml.
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 app = FastAPI(title="CourseSearch Backend")
 

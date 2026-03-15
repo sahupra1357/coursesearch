@@ -63,14 +63,25 @@ export default function CourseSearchPage() {
       })
 
       if (!resp.ok) {
-        const data = await resp.json()
-        throw new Error(data.error ?? "Search failed")
+        const data = await resp.json().catch(() => ({}))
+        const detail = data.detail ?? data.error
+        if (resp.status === 503) {
+          throw new Error("Search is not configured. Please set TAVILY_API_KEY on the server to enable live results.")
+        } else if (resp.status === 502) {
+          throw new Error("No results found for your query. Try different keywords or check back later.")
+        } else {
+          throw new Error(detail ?? "Something went wrong. Please try again.")
+        }
       }
 
       const data = await resp.json()
       setResults(data.results ?? [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      if (err instanceof TypeError && err.message.includes("fetch")) {
+        setError("Unable to connect to the server. Please check your connection or try again later.")
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
+      }
     } finally {
       setIsSearching(false)
     }
