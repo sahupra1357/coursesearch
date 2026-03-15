@@ -40,6 +40,7 @@ async def search(req: SearchRequest):
         location=req.location.strip(),
         tavily_key=os.getenv("TAVILY_API_KEY", "").strip(),
         anthropic_key=os.getenv("ANTHROPIC_API_KEY", "").strip(),
+        openai_key=os.getenv("OPENAI_API_KEY", "").strip(),
     )
 
     result = await orchestrator.run()
@@ -55,11 +56,11 @@ async def search(req: SearchRequest):
     }
     save_search(record)
 
+
     return {
         "results": result["results"],
         "agents": result["agents"],
         "searchId": record["id"],
-        "usedMock": result["usedMock"],
     }
 
 

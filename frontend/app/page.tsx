@@ -19,7 +19,6 @@ export default function CourseSearchPage() {
   const [activeQuery, setActiveQuery] = useState("")
   const [results, setResults] = useState<CollegeResult[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [usedMock, setUsedMock] = useState(false)
 
   const [activeTab, setActiveTab] = useState<Tab>("results")
   const [savedSearches, setSavedSearches] = useState<SearchRecord[]>([])
@@ -70,7 +69,6 @@ export default function CourseSearchPage() {
 
       const data = await resp.json()
       setResults(data.results ?? [])
-      setUsedMock(!!data.usedMock)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
@@ -120,19 +118,6 @@ export default function CourseSearchPage() {
       />
 
       <div className="max-w-screen-xl mx-auto px-4 py-6">
-        {/* Mock data notice */}
-        {usedMock && hasSearched && !isSearching && (
-          <div className="mb-4 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 text-sm text-amber-800">
-            <AlertCircle size={15} className="flex-shrink-0 mt-0.5" />
-            <span>
-              Showing demo results. Set{" "}
-              <code className="font-mono text-xs bg-amber-100 px-1 py-0.5 rounded">TAVILY_API_KEY</code>{" "}
-              in <code className="font-mono text-xs bg-amber-100 px-1 py-0.5 rounded">.env.local</code> to
-              search the live web.
-            </span>
-          </div>
-        )}
-
         {error && (
           <div className="mb-4 flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-lg px-4 py-2.5 text-sm text-destructive">
             <AlertCircle size={15} className="flex-shrink-0" />
