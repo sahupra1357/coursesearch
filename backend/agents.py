@@ -31,6 +31,7 @@ class CollegeInfo(BaseModel):
     college: str
     course: str
     location: str
+    country: Optional[str] = None   # country where the college is located
     isLocal: bool = False
     ranking: Optional[str] = None
     fees: Optional[str] = None
@@ -43,6 +44,88 @@ class CollegeInfo(BaseModel):
     source: str
     score: float
     foundBy: str
+
+
+# ── Country → university rating agency mapping ────────────────────────────────
+
+COUNTRY_RATING_AGENCIES: dict[str, str] = {
+    "united states": "US News & World Report",
+    "usa": "US News & World Report",
+    "india": "NIRF",
+    "united kingdom": "Times Higher Education",
+    "great britain": "Times Higher Education",
+    "australia": "Good Universities Guide QS",
+    "canada": "Maclean's University Rankings",
+    "germany": "CHE University Ranking",
+    "france": "L'Etudiant classement",
+    "china": "QS China",
+    "japan": "QS Japan",
+    "south korea": "JoongAng University Ranking",
+    "singapore": "QS Singapore",
+    "malaysia": "QS Malaysia",
+    "pakistan": "HEC Pakistan",
+    "bangladesh": "UGC Bangladesh",
+    "sri lanka": "QS Sri Lanka",
+    "new zealand": "QS New Zealand",
+    "ireland": "Times Higher Education",
+    "netherlands": "Keuzegids",
+    "sweden": "QS Nordic",
+    "norway": "QS Nordic",
+    "denmark": "QS Nordic",
+    "brazil": "Ranking Universitário Folha",
+    "mexico": "QS Latin America",
+    "argentina": "QS Latin America",
+    "colombia": "QS Latin America",
+    "chile": "QS Latin America",
+    "south africa": "QS Africa",
+    "nigeria": "NUC ranking",
+    "kenya": "QS Africa",
+    "egypt": "QS Arab Region",
+    "saudi arabia": "QS Arab Region",
+    "uae": "QS Arab Region",
+    "united arab emirates": "QS Arab Region",
+    "russia": "QS Russia",
+    "italy": "CENSIS ranking",
+    "spain": "QS Ibero America",
+    "portugal": "QS Ibero America",
+    "switzerland": "QS Switzerland",
+    "indonesia": "QS Asia",
+    "philippines": "QS Asia",
+    "thailand": "QS Asia",
+    "vietnam": "QS Asia",
+}
+
+
+def _get_rating_agency(location: str) -> str:
+    """Return the authoritative university rating agency for a given location string."""
+    loc_lower = location.lower()
+    for country, agency in COUNTRY_RATING_AGENCIES.items():
+        if country in loc_lower:
+            return agency
+    return "QS World University Rankings"
+
+
+def _get_expected_country(location: str) -> str:
+    """Return the canonical country name for a given location string, or '' if unknown."""
+    loc_lower = location.lower()
+    for country in COUNTRY_RATING_AGENCIES:
+        if country in loc_lower:
+            return country
+    return ""
+
+
+def _filter_by_country(results: list[CollegeInfo], expected_country: str) -> list[CollegeInfo]:
+    """Hard-filter results to only include colleges from the expected country."""
+    if not expected_country:
+        return results
+    filtered = [
+        r for r in results
+        if r.country and expected_country in r.country.lower()
+    ]
+    # Fall back to unfiltered only if the LLM returned no country fields at all
+    if not filtered and all(r.country is None for r in results):
+        return results
+    return filtered
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,13 +188,15 @@ class LocalCollegesAgent(SearchAgent):
 
 
 class RankedCollegesAgent(SearchAgent):
-    """Finds best nationally ranked colleges by NIRF / QS ratings."""
+    """Finds best nationally ranked colleges using the country's authoritative rating agency."""
 
     name = "RankedCollegesAgent"
 
     async def run(self) -> tuple[str, list[dict]]:
+        loc = f" {self.location}" if self.location else ""
+        agency = _get_rating_agency(self.location) if self.location else "QS World University Rankings"
         q = (
-            f"best top {self.query} colleges India NIRF ranking 2025 "
+            f"best top {self.query} colleges{loc} {agency} ranking 2025 "
             f"admission fees requirements"
         )
         return self.name, await self._tavily(q, n=5)
@@ -124,9 +209,10 @@ class AdmissionDetailsAgent(SearchAgent):
 
     async def run(self) -> tuple[str, list[dict]]:
         loc = f" {self.location}" if self.location else ""
+        agency = _get_rating_agency(self.location) if self.location else "QS World University Rankings"
         q = (
-            f"{self.query} admission eligibility entrance exam minimum marks "
-            f"required fees scholarship apply{loc} 2025"
+            f"{self.query} admission eligibility entrance exam fees scholarship{loc} "
+            f"{agency} 2025"
         )
         return self.name, await self._tavily(q, n=5)
 
@@ -171,6 +257,10 @@ async def _extract_claude(
             for i, r in enumerate(raw)
         )
         loc_ctx = f" in {location}" if location else ""
+        country_filter = (
+            f"IMPORTANT: Only extract colleges/universities located in or relevant to {location}. "
+            f"Skip any result from a different country.\n\n"
+        ) if location else ""
 
         resp = await client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -184,10 +274,12 @@ async def _extract_claude(
                 "role": "user",
                 "content": (
                     f'Extract college admission info from these results for "{query}"{loc_ctx}.\n\n'
+                    f"{country_filter}"
                     f"{snippets}\n\n"
                     "Return ONE JSON object per search result as a JSON array. Fields:\n"
                     "- college: full official college/university name\n"
                     "- course: exact program name related to the query\n"
+                    "- country: country where the college is located (e.g. 'India', 'United States')\n"
                     '- fees: annual fees with currency e.g. "₹2.2L/year" (null if unknown)\n'
                     '- duration: e.g. "4 years" (null if unknown)\n'
                     "- admissionRequirements: array of 2–4 specific requirements "
@@ -195,7 +287,7 @@ async def _extract_claude(
                     "- admissionLink: direct apply/admission URL if visible in URL, else null\n"
                     "- description: 1–2 sentences about the program\n"
                     "- deadline: application deadline if mentioned, else null\n"
-                    "- ranking: NIRF/QS rank if mentioned, else null\n\n"
+                    "- ranking: country ranking if mentioned, else null\n\n"
                     "Return ONLY the JSON array. Use null for unknown fields. "
                     "admissionRequirements must always be an array."
                 ),
@@ -218,7 +310,8 @@ async def _extract_claude(
                 id=f"{agent_name}-{i}-{int(time.time() * 1000)}",
                 college=item.get("college") or "Unknown College",
                 course=item.get("course") or query,
-                location=location or "India",
+                location=location or "",
+                country=item.get("country"),
                 isLocal=is_local,
                 ranking=item.get("ranking"),
                 fees=item.get("fees"),
@@ -258,6 +351,10 @@ async def _extract_openai(
             for i, r in enumerate(raw)
         )
         loc_ctx = f" in {location}" if location else ""
+        country_filter = (
+            f"IMPORTANT: Only extract colleges/universities located in or relevant to {location}. "
+            f"Skip any result from a different country.\n\n"
+        ) if location else ""
 
         resp = await client.chat.completions.create(
             model="gpt-4o-mini",
@@ -275,10 +372,12 @@ async def _extract_openai(
                     "role": "user",
                     "content": (
                         f'Extract college admission info from these results for "{query}"{loc_ctx}.\n\n'
+                        f"{country_filter}"
                         f"{snippets}\n\n"
                         "Return ONE JSON object per search result as a JSON array. Fields:\n"
                         "- college: full official college/university name\n"
                         "- course: exact program name related to the query\n"
+                        "- country: country where the college is located (e.g. 'India', 'United States')\n"
                         '- fees: annual fees with currency e.g. "₹2.2L/year" (null if unknown)\n'
                         '- duration: e.g. "4 years" (null if unknown)\n'
                         "- admissionRequirements: array of 2–4 specific requirements "
@@ -286,7 +385,7 @@ async def _extract_openai(
                         "- admissionLink: direct apply/admission URL if visible in URL, else null\n"
                         "- description: 1–2 sentences about the program\n"
                         "- deadline: application deadline if mentioned, else null\n"
-                        "- ranking: NIRF/QS rank if mentioned, else null\n\n"
+                        "- ranking: country ranking if mentioned, else null\n\n"
                         "Return ONLY the JSON array. Use null for unknown fields. "
                         "admissionRequirements must always be an array."
                     ),
@@ -310,7 +409,8 @@ async def _extract_openai(
                 id=f"{agent_name}-{i}-{int(time.time() * 1000)}",
                 college=item.get("college") or "Unknown College",
                 course=item.get("course") or query,
-                location=location or "India",
+                location=location or "",
+                country=item.get("country"),
                 isLocal=is_local,
                 ranking=item.get("ranking"),
                 fees=item.get("fees"),
@@ -395,7 +495,7 @@ def _extract_patterns(
             id=f"{agent_name}-{i}-{int(time.time() * 1000)}",
             college=college,
             course=query,
-            location=location or "India",
+            location=location or "",
             isLocal=is_local,
             fees=fees,
             duration=duration,
@@ -489,6 +589,11 @@ class AgentOrchestrator:
             if key not in seen:
                 seen.add(key)
                 unique.append(r)
+
+        # Hard-filter to expected country so results never mix countries
+        expected_country = _get_expected_country(self.location)
+        if expected_country:
+            unique = _filter_by_country(unique, expected_country)
 
         return {
             "results": [r.model_dump() for r in unique],

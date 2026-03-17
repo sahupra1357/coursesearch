@@ -11,8 +11,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { InteractiveStarRating } from "./star-rating"
-import { ALL_CATEGORIES } from "./mock-data"
 import type { Filters, CourseMode, CourseLevel } from "./types"
+
+const ALL_CATEGORIES = [
+  "Data Science",
+  "Web Development",
+  "Design",
+  "Business",
+  "Marketing",
+  "AI/ML",
+]
 
 interface FiltersPanelProps {
   filters: Filters

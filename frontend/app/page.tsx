@@ -1,14 +1,70 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Clock, ChevronDown, ChevronRight, RefreshCw, AlertCircle } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Clock, ChevronDown, ChevronRight, RefreshCw, AlertCircle, MapPin } from "lucide-react"
 import { SearchHero } from "@/components/course-search/search-hero"
 import { ResultsTable } from "@/components/course-search/results-table"
 import type { CollegeResult, SearchRecord } from "@/lib/types"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8001"
+const LOCATION_PREF_KEY = "coursesearch_location_pref"
+const LOCATION_CACHE_KEY = "coursesearch_location_cache"
+// Bump this version whenever the cache format changes to force re-detection
+const CACHE_VERSION = "2"
+const CACHE_VERSION_KEY = "coursesearch_cache_version"
 
 type Tab = "results" | "saved"
+type LocationPref = "allow-while-using" | null
+
+// Custom location permission dialog
+function LocationPermissionDialog({
+  onAllow,
+  onAllowWhileUsing,
+  onDeny,
+}: {
+  onAllow: () => void
+  onAllowWhileUsing: () => void
+  onDeny: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-80 mx-4 overflow-hidden">
+        <div className="flex flex-col items-center px-6 pt-7 pb-5 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#003580]/10 flex items-center justify-center mb-4">
+            <MapPin size={22} className="text-[#003580]" />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+            CourseSearch
+          </p>
+          <h2 className="text-base font-semibold mb-2">Allow access to your location?</h2>
+          <p className="text-sm text-muted-foreground leading-snug">
+            Your location helps us find courses and colleges near you.
+          </p>
+        </div>
+        <div className="border-t border-border divide-y divide-border">
+          <button
+            onClick={onAllowWhileUsing}
+            className="w-full py-3.5 text-sm font-medium text-[#003580] hover:bg-muted/40 transition-colors"
+          >
+            Allow while using
+          </button>
+          <button
+            onClick={onAllow}
+            className="w-full py-3.5 text-sm font-medium text-[#003580] hover:bg-muted/40 transition-colors"
+          >
+            Allow once
+          </button>
+          <button
+            onClick={onDeny}
+            className="w-full py-3.5 text-sm font-medium text-muted-foreground hover:bg-muted/40 transition-colors"
+          >
+            Don&apos;t allow
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function CourseSearchPage() {
   const [query, setQuery] = useState("")
@@ -19,34 +75,182 @@ export default function CourseSearchPage() {
   const [activeQuery, setActiveQuery] = useState("")
   const [results, setResults] = useState<CollegeResult[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [showLocationDialog, setShowLocationDialog] = useState(false)
 
   const [activeTab, setActiveTab] = useState<Tab>("results")
   const [savedSearches, setSavedSearches] = useState<SearchRecord[]>([])
   const [loadingSaved, setLoadingSaved] = useState(false)
   const [expandedSaved, setExpandedSaved] = useState<string | null>(null)
 
-  function handleDetectLocation() {
-    if (!navigator.geolocation) {
-      setLocationName("Location unavailable")
-      return
+  // Resolves with a location string after the user picks an option
+  const locationResolverRef = useRef<((loc: string) => void) | null>(null)
+
+  // On mount: invalidate stale cache, then restore or detect location
+  useEffect(() => {
+    // Clear old cache if version mismatch
+    if (localStorage.getItem(CACHE_VERSION_KEY) !== CACHE_VERSION) {
+      localStorage.removeItem(LOCATION_CACHE_KEY)
+      localStorage.setItem(CACHE_VERSION_KEY, CACHE_VERSION)
     }
+
+    const pref = localStorage.getItem(LOCATION_PREF_KEY) as LocationPref
+    if (pref === "allow-while-using") {
+      const cached = localStorage.getItem(LOCATION_CACHE_KEY) ?? ""
+      if (cached) {
+        setLocationName(cached)
+      } else {
+        // No cached location — detect country via IP immediately on load
+        fetch("https://ipwho.is/")
+          .then((r) => r.json())
+          .then((data) => {
+            const country = data.country || ""
+            if (country) {
+              setLocationName(country)
+              localStorage.setItem(LOCATION_CACHE_KEY, country)
+            }
+          })
+          .catch(() => {})
+      }
+    }
+  }, [])
+
+  async function reverseGeocode(lat: number, lon: number): Promise<string> {
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+        { headers: { "Accept-Language": "en" } },
+      )
+      const data = await resp.json()
+      const city =
+        data.address?.city ||
+        data.address?.town ||
+        data.address?.village ||
+        data.address?.county ||
+        ""
+      const state = data.address?.state || ""
+      const country = data.address?.country || ""
+      if (city) return state ? `${city}, ${state}` : city
+      if (state) return country ? `${state}, ${country}` : state
+      return country
+    } catch {
+      return ""
+    }
+  }
+
+  async function fetchRealLocation(): Promise<string> {
+    if (!navigator.geolocation) return ""
     setIsLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      () => {
-        setLocationName("Bangalore, Karnataka")
-        setIsLocating(false)
-      },
-      () => {
-        setLocationName("")
-        setIsLocating(false)
-      },
-      { timeout: 8000 },
-    )
+    return new Promise<string>((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const cityName = await reverseGeocode(pos.coords.latitude, pos.coords.longitude)
+          setIsLocating(false)
+          resolve(cityName)
+        },
+        () => {
+          setIsLocating(false)
+          resolve("")
+        },
+        { timeout: 10000 },
+      )
+    })
+  }
+
+  /** Shows the custom dialog and returns whatever location the user ultimately grants (or ""). */
+  function requestLocationViaDialog(): Promise<string> {
+    return new Promise<string>((resolve) => {
+      locationResolverRef.current = resolve
+      setShowLocationDialog(true)
+    })
+  }
+
+  async function handleDialogAllowWhileUsing() {
+    setShowLocationDialog(false)
+    localStorage.setItem(LOCATION_PREF_KEY, "allow-while-using")
+    const city = await fetchRealLocation()
+    setLocationName(city)
+    if (city) localStorage.setItem(LOCATION_CACHE_KEY, city)
+    locationResolverRef.current?.(city)
+    locationResolverRef.current = null
+  }
+
+  async function handleDialogAllow() {
+    setShowLocationDialog(false)
+    const city = await fetchRealLocation()
+    setLocationName(city)
+    locationResolverRef.current?.(city)
+    locationResolverRef.current = null
+  }
+
+  async function handleDialogDeny() {
+    // "Don't Allow" = no GPS, but detect country via IP to show country-specific results
+    setShowLocationDialog(false)
+    setIsLocating(true)
+    let country = ""
+    try {
+      const resp = await fetch("https://ipwho.is/")
+      const data = await resp.json()
+      country = data.country || ""
+    } catch {
+      country = ""
+    } finally {
+      setIsLocating(false)
+    }
+    if (country) setLocationName(country)
+    locationResolverRef.current?.(country)
+    locationResolverRef.current = null
+  }
+
+  /** Called by the locate button in the search bar */
+  async function handleDetectLocation() {
+    const pref = localStorage.getItem(LOCATION_PREF_KEY) as LocationPref
+    if (pref === "allow-while-using") {
+      const city = await fetchRealLocation()
+      setLocationName(city)
+      if (city) localStorage.setItem(LOCATION_CACHE_KEY, city)
+    } else {
+      const city = await requestLocationViaDialog()
+      setLocationName(city)
+    }
+  }
+
+  async function getCountryFromIP(): Promise<string> {
+    try {
+      const resp = await fetch("https://ipwho.is/")
+      const data = await resp.json()
+      return data.country || ""
+    } catch {
+      return ""
+    }
+  }
+
+  async function resolveLocation(): Promise<string> {
+    const existing = locationName.trim()
+    if (existing) return existing
+
+    const pref = localStorage.getItem(LOCATION_PREF_KEY) as LocationPref
+
+    if (pref === "allow-while-using") {
+      // Re-fetch fresh coords — country is the minimum fallback from reverseGeocode
+      let loc = await fetchRealLocation()
+      // GPS failed — fall back to IP country so we never search globally
+      if (!loc) loc = await getCountryFromIP()
+      if (loc) {
+        setLocationName(loc)
+        localStorage.setItem(LOCATION_CACHE_KEY, loc)
+      }
+      return loc
+    }
+
+    // No saved preference — show dialog every time location field is empty
+    return requestLocationViaDialog()
   }
 
   async function handleSearch() {
     const trimmedQuery = query.trim()
     if (!trimmedQuery) return
+
+    const resolvedLocation = await resolveLocation()
 
     setIsSearching(true)
     setHasSearched(true)
@@ -59,7 +263,7 @@ export default function CourseSearchPage() {
       const resp = await fetch(`${BACKEND_URL}/search`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: trimmedQuery, location: locationName.trim() }),
+        body: JSON.stringify({ query: trimmedQuery, location: resolvedLocation }),
       })
 
       if (!resp.ok) {
@@ -118,6 +322,14 @@ export default function CourseSearchPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {showLocationDialog && (
+        <LocationPermissionDialog
+          onAllowWhileUsing={handleDialogAllowWhileUsing}
+          onAllow={handleDialogAllow}
+          onDeny={handleDialogDeny}
+        />
+      )}
+
       <SearchHero
         query={query}
         setQuery={setQuery}
