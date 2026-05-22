@@ -4,14 +4,18 @@ export interface CollegeResult {
   course: string
   location: string
   isLocal: boolean
+  isOnline: boolean
   ranking: string | null
   fees: string | null
+  scholarships: string | null
   duration: string | null
   admissionRequirements: string[]
   admissionLink: string | null
   courseLink: string
   description: string
   deadline: string | null
+  highlights: string[]
+  careerPaths: string[]
   source: string
   score: number
   foundBy: string

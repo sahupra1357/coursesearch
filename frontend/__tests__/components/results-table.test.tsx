@@ -9,14 +9,18 @@ const mockResults: CollegeResult[] = [
     course: "B.Tech Computer Science",
     location: "Mumbai",
     isLocal: false,
+    isOnline: false,
     ranking: "#1 Engineering — NIRF 2024",
     fees: "₹2.2L/year",
+    scholarships: null,
     duration: "4 years",
     admissionRequirements: ["JEE Advanced", "10+2 PCM with 75%"],
     admissionLink: "https://iitb.ac.in/admissions",
     courseLink: "https://iitb.ac.in",
     description: "World-class B.Tech CSE program at IIT Bombay.",
     deadline: "April 2025",
+    highlights: ["Algorithms", "Machine Learning", "Systems Design"],
+    careerPaths: ["Software Engineer", "Research Scientist"],
     source: "iitb.ac.in",
     score: 0.97,
     foundBy: "RankedCollegesAgent",
@@ -27,14 +31,18 @@ const mockResults: CollegeResult[] = [
     course: "B.E. Computer Science",
     location: "Bangalore",
     isLocal: true,
+    isOnline: false,
     ranking: "NAAC A+",
     fees: "₹1.2L/year",
+    scholarships: "Merit scholarship up to 50%",
     duration: "4 years",
     admissionRequirements: ["KCET / COMEDK", "10+2 PCM 60% minimum"],
     admissionLink: null,
     courseLink: "https://rvce.edu.in",
     description: "Premier engineering college in Bangalore.",
     deadline: "June 2025",
+    highlights: ["Web Development", "Data Structures"],
+    careerPaths: ["Software Developer", "Data Analyst"],
     source: "rvce.edu.in",
     score: 0.88,
     foundBy: "LocalCollegesAgent",
@@ -52,7 +60,7 @@ describe("ResultsTable", () => {
       />
     )
     expect(screen.getByText(/Searching for/)).toBeInTheDocument()
-    expect(screen.getByText(/Agents are fetching/)).toBeInTheDocument()
+    expect(screen.getByText(/4 agents running in parallel/)).toBeInTheDocument()
   })
 
   it("shows search prompt when hasSearched is false", () => {
@@ -143,11 +151,25 @@ describe("ResultsTable", () => {
     expect(screen.queryByText("JEE Advanced")).not.toBeInTheDocument()
 
     // Click the toggle button
-    fireEvent.click(screen.getByText("Admission Requirements"))
+    fireEvent.click(screen.getByText("Admission Details"))
 
     // Requirements should now be visible
     expect(screen.getByText("JEE Advanced")).toBeInTheDocument()
     expect(screen.getByText("10+2 PCM with 75%")).toBeInTheDocument()
+  })
+
+  it("shows highlights and career paths after expanding", () => {
+    render(
+      <ResultsTable
+        results={[mockResults[0]]}
+        isLoading={false}
+        hasSearched={true}
+        query="Computer Science"
+      />
+    )
+    fireEvent.click(screen.getByText("Admission Details"))
+    expect(screen.getByText("Algorithms")).toBeInTheDocument()
+    expect(screen.getByText("Software Engineer")).toBeInTheDocument()
   })
 
   it("shows Apply Now button when admissionLink is present", () => {
@@ -162,7 +184,7 @@ describe("ResultsTable", () => {
     expect(screen.getByText("Apply Now")).toBeInTheDocument()
   })
 
-  it("shows deadline after expanding requirements", () => {
+  it("shows deadline after expanding details", () => {
     render(
       <ResultsTable
         results={[mockResults[0]]}
@@ -171,7 +193,7 @@ describe("ResultsTable", () => {
         query="Computer Science"
       />
     )
-    fireEvent.click(screen.getByText("Admission Requirements"))
+    fireEvent.click(screen.getByText("Admission Details"))
     expect(screen.getByText(/April 2025/)).toBeInTheDocument()
   })
 })
