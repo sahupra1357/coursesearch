@@ -8,6 +8,15 @@ import type { CollegeResult, SearchRecord } from "@/lib/types"
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8001"
 const LOCATION_PREF_KEY = "coursesearch_location_pref"
+
+function normalizeResult(r: CollegeResult): CollegeResult {
+  return {
+    ...r,
+    admissionRequirements: Array.isArray(r.admissionRequirements) ? r.admissionRequirements : [],
+    highlights: Array.isArray(r.highlights) ? r.highlights : [],
+    careerPaths: Array.isArray(r.careerPaths) ? r.careerPaths : [],
+  }
+}
 const LOCATION_CACHE_KEY = "coursesearch_location_cache"
 // Bump this version whenever the cache format changes to force re-detection
 const CACHE_VERSION = "2"
@@ -279,7 +288,7 @@ export default function CourseSearchPage() {
       }
 
       const data = await resp.json()
-      setResults(data.results ?? [])
+      setResults((data.results ?? []).map(normalizeResult))
     } catch (err) {
       if (err instanceof TypeError && err.message.includes("fetch")) {
         setError("Unable to connect to the server. Please check your connection or try again later.")
@@ -297,7 +306,12 @@ export default function CourseSearchPage() {
       const resp = await fetch(`${BACKEND_URL}/saved`)
       if (resp.ok) {
         const data = await resp.json()
-        setSavedSearches(data.searches ?? [])
+        setSavedSearches(
+          (data.searches ?? []).map((s: SearchRecord) => ({
+            ...s,
+            results: (s.results ?? []).map(normalizeResult),
+          }))
+        )
       }
     } finally {
       setLoadingSaved(false)
